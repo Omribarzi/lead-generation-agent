@@ -37,6 +37,8 @@ LEAD_SOURCES = [
 
 # Column IDs for the Ksharim Lead Pipeline board
 COLUMN_IDS = {
+    "first_name": "text_mkz5ee4p",
+    "last_name": "text_mkz5z85j",
     "company": "text_mkz58xs9",
     "position": "text_mkz55gcc",
     "linkedin": "link_mkz5m6nn",
@@ -57,7 +59,8 @@ COLUMN_IDS = {
 class Lead:
     """Represents a lead in the Monday.com board."""
 
-    name: str
+    first_name: str
+    last_name: str
     company: str
     position: str
     linkedin_url: str
@@ -72,6 +75,11 @@ class Lead:
     notes: str = ""
     lead_score: int = 0
     item_id: Optional[str] = None
+
+    @property
+    def full_name(self) -> str:
+        """Return the full name of the lead."""
+        return f"{self.first_name} {self.last_name}".strip()
 
 
 class MondayClient:
@@ -121,6 +129,8 @@ class MondayClient:
         """
         # Build column values using correct column IDs
         column_values = {
+            COLUMN_IDS["first_name"]: lead.first_name,
+            COLUMN_IDS["last_name"]: lead.last_name,
             COLUMN_IDS["company"]: lead.company,
             COLUMN_IDS["position"]: lead.position,
             COLUMN_IDS["linkedin"]: {"url": lead.linkedin_url, "text": "LinkedIn"},
@@ -166,7 +176,7 @@ class MondayClient:
 
         variables = {
             "board_id": self.board_id,
-            "item_name": lead.name,
+            "item_name": lead.full_name,
             "column_values": json.dumps(column_values),
         }
 
@@ -219,6 +229,8 @@ class MondayClient:
         column_values = {}
 
         field_mapping = {
+            "first_name": (COLUMN_IDS["first_name"], lambda v: v),
+            "last_name": (COLUMN_IDS["last_name"], lambda v: v),
             "status": (COLUMN_IDS["status"], lambda v: {"label": v}),
             "email": (COLUMN_IDS["email"], lambda v: {"email": v, "text": v}),
             "phone": (COLUMN_IDS["phone"], lambda v: {"phone": v}),
@@ -354,8 +366,19 @@ class MondayClient:
         Returns:
             Lead object
         """
+        # Get first_name and last_name from columns, fallback to parsing item name
+        first_name = columns.get(COLUMN_IDS["first_name"], {}).get("text", "")
+        last_name = columns.get(COLUMN_IDS["last_name"], {}).get("text", "")
+
+        # If columns are empty, try to parse from item name (for backward compatibility)
+        if not first_name and not last_name and item.get("name"):
+            name_parts = item["name"].split(" ", 1)
+            first_name = name_parts[0] if name_parts else ""
+            last_name = name_parts[1] if len(name_parts) > 1 else ""
+
         return Lead(
-            name=item["name"],
+            first_name=first_name,
+            last_name=last_name,
             company=columns.get(COLUMN_IDS["company"], {}).get("text", ""),
             position=columns.get(COLUMN_IDS["position"], {}).get("text", ""),
             linkedin_url=self._extract_url(columns.get(COLUMN_IDS["linkedin"], {}).get("value")),

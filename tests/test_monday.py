@@ -32,13 +32,16 @@ class TestMondayClient:
         from src.integrations.monday_client import Lead
 
         lead = Lead(
-            name="Test User",
+            first_name="Test",
+            last_name="User",
             company="Test Company",
             position="CSR Manager",
             linkedin_url="https://linkedin.com/in/test"
         )
 
-        assert lead.name == "Test User"
+        assert lead.first_name == "Test"
+        assert lead.last_name == "User"
+        assert lead.full_name == "Test User"
         assert lead.company == "Test Company"
         assert lead.position == "CSR Manager"
         assert lead.linkedin_url == "https://linkedin.com/in/test"
@@ -130,7 +133,8 @@ class TestMondayClient:
             client._execute_query = AsyncMock(return_value=mock_response)
 
             lead = Lead(
-                name="Test User",
+                first_name="Test",
+                last_name="User",
                 company="Test Company",
                 position="CSR Manager",
                 linkedin_url="https://linkedin.com/in/test"
