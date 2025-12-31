@@ -25,6 +25,16 @@ LEAD_STATUS = {
     "WON": "Won",
 }
 
+# Lead source constants
+LEAD_SOURCES = [
+    "LinkedIn Search",
+    "LinkedIn Sales Navigator",
+    "Referral",
+    "Website",
+    "Event",
+    "Other",
+]
+
 # Column IDs for the Ksharim Lead Pipeline board
 COLUMN_IDS = {
     "company": "text_mkz58xs9",
@@ -34,6 +44,12 @@ COLUMN_IDS = {
     "last_message": "date_mkz58sks",
     "conversation": "long_text_mkz56sc2",
     "score": "numeric_mkz5p3m6",
+    "email": "email_mkz5ram4",
+    "phone": "phone_mkz5jdqh",
+    "notes": "long_text_mkz5pgk0",
+    "next_action": "date_mkz5ddwy",
+    "meeting_date": "date_mkz5x0cj",
+    "source": "color_mkz5w950",
 }
 
 
@@ -46,8 +62,14 @@ class Lead:
     position: str
     linkedin_url: str
     status: str = "New"
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    source: Optional[str] = None
     last_message_date: Optional[str] = None
+    next_action_date: Optional[str] = None
+    meeting_date: Optional[str] = None
     conversation_log: str = ""
+    notes: str = ""
     lead_score: int = 0
     item_id: Optional[str] = None
 
@@ -105,11 +127,30 @@ class MondayClient:
             COLUMN_IDS["status"]: {"label": lead.status},
         }
 
+        # Optional fields
+        if lead.email:
+            column_values[COLUMN_IDS["email"]] = {"email": lead.email, "text": lead.email}
+
+        if lead.phone:
+            column_values[COLUMN_IDS["phone"]] = {"phone": lead.phone}
+
+        if lead.source:
+            column_values[COLUMN_IDS["source"]] = {"label": lead.source}
+
         if lead.conversation_log:
             column_values[COLUMN_IDS["conversation"]] = {"text": lead.conversation_log}
 
+        if lead.notes:
+            column_values[COLUMN_IDS["notes"]] = {"text": lead.notes}
+
         if lead.lead_score:
             column_values[COLUMN_IDS["score"]] = lead.lead_score
+
+        if lead.next_action_date:
+            column_values[COLUMN_IDS["next_action"]] = {"date": lead.next_action_date}
+
+        if lead.meeting_date:
+            column_values[COLUMN_IDS["meeting_date"]] = {"date": lead.meeting_date}
 
         query = """
         mutation ($board_id: ID!, $item_name: String!, $column_values: JSON!) {
@@ -143,6 +184,60 @@ class MondayClient:
             True if successful
         """
         column_values = {COLUMN_IDS["status"]: {"label": status}}
+
+        query = """
+        mutation ($board_id: ID!, $item_id: ID!, $column_values: JSON!) {
+            change_multiple_column_values (
+                board_id: $board_id,
+                item_id: $item_id,
+                column_values: $column_values
+            ) {
+                id
+            }
+        }
+        """
+
+        variables = {
+            "board_id": self.board_id,
+            "item_id": item_id,
+            "column_values": json.dumps(column_values),
+        }
+
+        await self._execute_query(query, variables)
+        return True
+
+    async def update_lead(self, item_id: str, **kwargs) -> bool:
+        """Update multiple fields on a lead.
+
+        Args:
+            item_id: The ID of the item to update
+            **kwargs: Field names and values to update
+
+        Returns:
+            True if successful
+        """
+        column_values = {}
+
+        field_mapping = {
+            "status": (COLUMN_IDS["status"], lambda v: {"label": v}),
+            "email": (COLUMN_IDS["email"], lambda v: {"email": v, "text": v}),
+            "phone": (COLUMN_IDS["phone"], lambda v: {"phone": v}),
+            "source": (COLUMN_IDS["source"], lambda v: {"label": v}),
+            "notes": (COLUMN_IDS["notes"], lambda v: {"text": v}),
+            "next_action_date": (COLUMN_IDS["next_action"], lambda v: {"date": v}),
+            "meeting_date": (COLUMN_IDS["meeting_date"], lambda v: {"date": v}),
+            "lead_score": (COLUMN_IDS["score"], lambda v: v),
+            "company": (COLUMN_IDS["company"], lambda v: v),
+            "position": (COLUMN_IDS["position"], lambda v: v),
+        }
+
+        for field_name, value in kwargs.items():
+            if field_name in field_mapping and value is not None:
+                col_id, transformer = field_mapping[field_name]
+                column_values[col_id] = transformer(value)
+
+        if not column_values:
+            return True
 
         query = """
         mutation ($board_id: ID!, $item_id: ID!, $column_values: JSON!) {
@@ -207,18 +302,82 @@ class MondayClient:
             item_status = status_col.get("text", "")
 
             if item_status == status:
-                lead = Lead(
-                    name=item["name"],
-                    company=columns.get(COLUMN_IDS["company"], {}).get("text", ""),
-                    position=columns.get(COLUMN_IDS["position"], {}).get("text", ""),
-                    linkedin_url=self._extract_url(columns.get(COLUMN_IDS["linkedin"], {}).get("value")),
-                    status=item_status,
-                    conversation_log=columns.get(COLUMN_IDS["conversation"], {}).get("text", ""),
-                    item_id=item["id"],
-                )
+                lead = self._parse_lead_from_item(item, columns)
                 leads.append(lead)
 
         return leads
+
+    async def get_all_leads(self) -> list[Lead]:
+        """Get all leads from the board.
+
+        Returns:
+            List of Lead objects
+        """
+        query = """
+        query ($board_id: ID!) {
+            boards (ids: [$board_id]) {
+                items_page (limit: 500) {
+                    items {
+                        id
+                        name
+                        column_values {
+                            id
+                            text
+                            value
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        variables = {"board_id": self.board_id}
+        result = await self._execute_query(query, variables)
+
+        leads = []
+        items = result.get("data", {}).get("boards", [{}])[0].get("items_page", {}).get("items", [])
+
+        for item in items:
+            columns = {cv["id"]: cv for cv in item.get("column_values", [])}
+            lead = self._parse_lead_from_item(item, columns)
+            leads.append(lead)
+
+        return leads
+
+    def _parse_lead_from_item(self, item: dict, columns: dict) -> Lead:
+        """Parse a Lead object from Monday.com item data.
+
+        Args:
+            item: The item data from the API
+            columns: Dictionary of column values by ID
+
+        Returns:
+            Lead object
+        """
+        return Lead(
+            name=item["name"],
+            company=columns.get(COLUMN_IDS["company"], {}).get("text", ""),
+            position=columns.get(COLUMN_IDS["position"], {}).get("text", ""),
+            linkedin_url=self._extract_url(columns.get(COLUMN_IDS["linkedin"], {}).get("value")),
+            status=columns.get(COLUMN_IDS["status"], {}).get("text", ""),
+            email=columns.get(COLUMN_IDS["email"], {}).get("text", ""),
+            phone=columns.get(COLUMN_IDS["phone"], {}).get("text", ""),
+            source=columns.get(COLUMN_IDS["source"], {}).get("text", ""),
+            last_message_date=columns.get(COLUMN_IDS["last_message"], {}).get("text", ""),
+            next_action_date=columns.get(COLUMN_IDS["next_action"], {}).get("text", ""),
+            meeting_date=columns.get(COLUMN_IDS["meeting_date"], {}).get("text", ""),
+            conversation_log=columns.get(COLUMN_IDS["conversation"], {}).get("text", ""),
+            notes=columns.get(COLUMN_IDS["notes"], {}).get("text", ""),
+            lead_score=self._parse_number(columns.get(COLUMN_IDS["score"], {}).get("text", "")),
+            item_id=item["id"],
+        )
+
+    def _parse_number(self, value: str) -> int:
+        """Parse a number from string, returning 0 if invalid."""
+        try:
+            return int(float(value)) if value else 0
+        except (ValueError, TypeError):
+            return 0
 
     async def append_to_conversation_log(self, item_id: str, message: str) -> bool:
         """Append a message to the conversation log of a lead.
@@ -313,6 +472,30 @@ class MondayClient:
         await self._execute_query(query, variables)
         return True
 
+    async def set_meeting_date(self, item_id: str, meeting_date: str) -> bool:
+        """Set the meeting date for a lead.
+
+        Args:
+            item_id: The ID of the item to update
+            meeting_date: The meeting date in YYYY-MM-DD format
+
+        Returns:
+            True if successful
+        """
+        return await self.update_lead(item_id, meeting_date=meeting_date)
+
+    async def set_next_action_date(self, item_id: str, next_action_date: str) -> bool:
+        """Set the next action date for a lead.
+
+        Args:
+            item_id: The ID of the item to update
+            next_action_date: The next action date in YYYY-MM-DD format
+
+        Returns:
+            True if successful
+        """
+        return await self.update_lead(item_id, next_action_date=next_action_date)
+
     async def get_lead_by_id(self, item_id: str) -> Optional[Lead]:
         """Get a lead by its item ID.
 
@@ -345,15 +528,7 @@ class MondayClient:
         item = items[0]
         columns = {cv["id"]: cv for cv in item.get("column_values", [])}
 
-        return Lead(
-            name=item["name"],
-            company=columns.get(COLUMN_IDS["company"], {}).get("text", ""),
-            position=columns.get(COLUMN_IDS["position"], {}).get("text", ""),
-            linkedin_url=self._extract_url(columns.get(COLUMN_IDS["linkedin"], {}).get("value")),
-            status=columns.get(COLUMN_IDS["status"], {}).get("text", ""),
-            conversation_log=columns.get(COLUMN_IDS["conversation"], {}).get("text", ""),
-            item_id=item["id"],
-        )
+        return self._parse_lead_from_item(item, columns)
 
     def _extract_url(self, value: Optional[str]) -> str:
         """Extract URL from Monday.com link column value.
