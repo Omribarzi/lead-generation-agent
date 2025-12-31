@@ -7,10 +7,11 @@
 1. **Write code** for the task
 2. **Run locally** and verify it works
 3. **Run tests** (pytest) and make sure they pass
-4. **Git commit & push** with descriptive message
-5. **E2E Verification** - Use E2E infrastructure to verify the task
-6. **STOP and verify with Claude** (Chrome extension) that the task was completed correctly
-7. **Only then** move to the next task
+4. **API Verification** - Run verification script to confirm data via API
+5. **Git commit & push** with descriptive message
+6. **E2E Verification** - Use Chrome integration or screenshots to visually verify
+7. **STOP and verify with Claude** (Chrome extension) that the task was completed correctly
+8. **Only then** move to the next task
 
 ### Git Workflow
 ```bash
@@ -97,6 +98,76 @@ Test cases are stored in `e2e/tests/` as Markdown files. Each test should have:
 - Preconditions
 - Step-by-step instructions
 - Expected results
+
+---
+
+## API Verification Scripts
+
+### IMPORTANT: Run these BEFORE every git push to verify integrations work
+
+#### Monday.com Verification
+```bash
+cd /Users/omribarzilay/Lead\ Generation\ Agent
+PYTHONPATH=. python3 -c "
+import asyncio
+from src.integrations.monday_client import MondayClient
+
+async def verify():
+    async with MondayClient() as client:
+        leads = await client.get_all_leads()
+        print(f'=== Monday.com Verification ===')
+        print(f'Board ID: {client.board_id}')
+        print(f'Total leads: {len(leads)}')
+        for lead in leads:
+            print(f'  - {lead.full_name} | {lead.status} | {lead.source}')
+        print('API: OK')
+
+asyncio.run(verify())
+"
+```
+
+#### PhantomBuster Verification
+```bash
+PYTHONPATH=. python3 -c "
+import asyncio
+from src.integrations.phantombuster import PhantomBusterClient
+
+async def verify():
+    async with PhantomBusterClient() as client:
+        agents = await client.get_all_agents()
+        print(f'=== PhantomBuster Verification ===')
+        print(f'Total agents: {len(agents)}')
+        for agent in agents:
+            print(f'  - {agent.get(\"name\")}: ID={agent.get(\"id\")}')
+        print('API: OK')
+
+asyncio.run(verify())
+"
+```
+
+#### OpenAI Verification (after Task 4)
+```bash
+PYTHONPATH=. python3 -c "
+import asyncio
+from src.agents.conversation_agent import ConversationAgent
+
+async def verify():
+    agent = ConversationAgent()
+    # Test with mock data
+    print('=== OpenAI Verification ===')
+    print('Agent initialized: OK')
+    # Add actual test after implementation
+
+asyncio.run(verify())
+"
+```
+
+#### Chrome Integration (Optional - for visual verification)
+Start Claude Code with Chrome integration:
+```bash
+claude --chrome
+```
+Then navigate to Monday.com board to visually verify data.
 
 ---
 
@@ -253,7 +324,8 @@ For every task completed:
 
 - [ ] Code written and working locally
 - [ ] Unit tests written and passing: `pytest tests/test_xxx.py -v`
-- [ ] E2E verification completed (if applicable)
+- [ ] API verification script run and confirmed OK
+- [ ] E2E verification completed (screenshot or Chrome integration)
 - [ ] Git commit with descriptive message
 - [ ] Git push to origin main
 - [ ] Verification requested from user
