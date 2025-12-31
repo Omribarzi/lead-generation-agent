@@ -25,6 +25,17 @@ LEAD_STATUS = {
     "WON": "Won",
 }
 
+# Column IDs for the Ksharim Lead Pipeline board
+COLUMN_IDS = {
+    "company": "text_mkz58xs9",
+    "position": "text_mkz55gcc",
+    "linkedin": "link_mkz5m6nn",
+    "status": "color_mkz5scfr",
+    "last_message": "date_mkz58sks",
+    "conversation": "long_text_mkz56sc2",
+    "score": "numeric_mkz5p3m6",
+}
+
 
 @dataclass
 class Lead:
@@ -86,19 +97,19 @@ class MondayClient:
         Returns:
             The ID of the created item
         """
-        # Build column values
+        # Build column values using correct column IDs
         column_values = {
-            "text": lead.company,  # Company column
-            "text6": lead.position,  # Position column
-            "link": {"url": lead.linkedin_url, "text": "LinkedIn"},  # LinkedIn URL column
-            "status": {"label": lead.status},  # Status column
+            COLUMN_IDS["company"]: lead.company,
+            COLUMN_IDS["position"]: lead.position,
+            COLUMN_IDS["linkedin"]: {"url": lead.linkedin_url, "text": "LinkedIn"},
+            COLUMN_IDS["status"]: {"label": lead.status},
         }
 
         if lead.conversation_log:
-            column_values["long_text"] = {"text": lead.conversation_log}
+            column_values[COLUMN_IDS["conversation"]] = {"text": lead.conversation_log}
 
         if lead.lead_score:
-            column_values["numbers"] = lead.lead_score
+            column_values[COLUMN_IDS["score"]] = lead.lead_score
 
         query = """
         mutation ($board_id: ID!, $item_name: String!, $column_values: JSON!) {
@@ -131,7 +142,7 @@ class MondayClient:
         Returns:
             True if successful
         """
-        column_values = {"status": {"label": status}}
+        column_values = {COLUMN_IDS["status"]: {"label": status}}
 
         query = """
         mutation ($board_id: ID!, $item_id: ID!, $column_values: JSON!) {
@@ -192,17 +203,17 @@ class MondayClient:
             columns = {cv["id"]: cv for cv in item.get("column_values", [])}
 
             # Check if status matches
-            status_col = columns.get("status", {})
+            status_col = columns.get(COLUMN_IDS["status"], {})
             item_status = status_col.get("text", "")
 
             if item_status == status:
                 lead = Lead(
                     name=item["name"],
-                    company=columns.get("text", {}).get("text", ""),
-                    position=columns.get("text6", {}).get("text", ""),
-                    linkedin_url=self._extract_url(columns.get("link", {}).get("value")),
+                    company=columns.get(COLUMN_IDS["company"], {}).get("text", ""),
+                    position=columns.get(COLUMN_IDS["position"], {}).get("text", ""),
+                    linkedin_url=self._extract_url(columns.get(COLUMN_IDS["linkedin"], {}).get("value")),
                     status=item_status,
-                    conversation_log=columns.get("long_text", {}).get("text", ""),
+                    conversation_log=columns.get(COLUMN_IDS["conversation"], {}).get("text", ""),
                     item_id=item["id"],
                 )
                 leads.append(lead)
@@ -237,7 +248,7 @@ class MondayClient:
         current_log = ""
         if items:
             for cv in items[0].get("column_values", []):
-                if cv["id"] == "long_text":
+                if cv["id"] == COLUMN_IDS["conversation"]:
                     current_log = cv.get("text", "") or ""
                     break
 
@@ -246,7 +257,7 @@ class MondayClient:
         new_log = f"{current_log}\n\n[{timestamp}]\n{message}".strip()
 
         # Update the column
-        column_values = {"long_text": {"text": new_log}}
+        column_values = {COLUMN_IDS["conversation"]: {"text": new_log}}
 
         update_query = """
         mutation ($board_id: ID!, $item_id: ID!, $column_values: JSON!) {
@@ -279,7 +290,7 @@ class MondayClient:
             True if successful
         """
         today = datetime.now().strftime("%Y-%m-%d")
-        column_values = {"date": {"date": today}}
+        column_values = {COLUMN_IDS["last_message"]: {"date": today}}
 
         query = """
         mutation ($board_id: ID!, $item_id: ID!, $column_values: JSON!) {
@@ -336,11 +347,11 @@ class MondayClient:
 
         return Lead(
             name=item["name"],
-            company=columns.get("text", {}).get("text", ""),
-            position=columns.get("text6", {}).get("text", ""),
-            linkedin_url=self._extract_url(columns.get("link", {}).get("value")),
-            status=columns.get("status", {}).get("text", ""),
-            conversation_log=columns.get("long_text", {}).get("text", ""),
+            company=columns.get(COLUMN_IDS["company"], {}).get("text", ""),
+            position=columns.get(COLUMN_IDS["position"], {}).get("text", ""),
+            linkedin_url=self._extract_url(columns.get(COLUMN_IDS["linkedin"], {}).get("value")),
+            status=columns.get(COLUMN_IDS["status"], {}).get("text", ""),
+            conversation_log=columns.get(COLUMN_IDS["conversation"], {}).get("text", ""),
             item_id=item["id"],
         )
 
