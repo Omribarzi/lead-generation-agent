@@ -7,11 +7,10 @@
 1. **Write code** for the task
 2. **Run locally** and verify it works
 3. **Run tests** (pytest) and make sure they pass
-4. **API Verification** - Run verification script to confirm data via API
+4. **API Verification** - Run verification script to confirm integration works with real data
 5. **Git commit & push** with descriptive message
-6. **E2E Verification** - Use Chrome integration or screenshots to visually verify
-7. **STOP and verify with Claude** (Chrome extension) that the task was completed correctly
-8. **Only then** move to the next task
+6. **Visual Verification** - Use `claude --chrome` to visually verify UI/data (if applicable)
+7. **Only then** move to the next task
 
 ### Git Workflow
 ```bash
@@ -325,10 +324,9 @@ For every task completed:
 - [ ] Code written and working locally
 - [ ] Unit tests written and passing: `pytest tests/test_xxx.py -v`
 - [ ] API verification script run and confirmed OK
-- [ ] E2E verification completed (screenshot or Chrome integration)
 - [ ] Git commit with descriptive message
 - [ ] Git push to origin main
-- [ ] Verification requested from user
+- [ ] Visual verification with `claude --chrome` (if applicable)
 
 ---
 
