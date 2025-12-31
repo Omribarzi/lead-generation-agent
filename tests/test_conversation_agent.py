@@ -80,7 +80,8 @@ class TestConversationAgent:
             agent = ConversationAgent()
             assert agent is not None
             assert agent.api_key == "test_key"
-            assert agent.model == "gpt-4.5-preview"
+            assert agent.model == "gpt-5-mini"
+            assert agent.advanced_model == "gpt-5.2"
 
     def test_system_prompt_exists(self):
         """Test that system prompt is defined."""

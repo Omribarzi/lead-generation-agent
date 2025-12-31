@@ -133,13 +133,15 @@ class ConversationAgent:
         self.api_key = settings.OPENAI_API_KEY
         self.calendar_link = settings.CALENDAR_BOOKING_LINK
         self._client = AsyncOpenAI(api_key=self.api_key)
-        self.model = "gpt-4.5-preview"  # Use GPT-4.5 for best Hebrew support
+        self.model = "gpt-5-mini"  # Default model for standard messages
+        self.advanced_model = "gpt-5.2"  # For complex reasoning tasks
 
     async def generate_message(
         self,
         lead: LeadContext,
         message_type: MessageType = MessageType.FIRST_OUTREACH,
         last_message: Optional[str] = None,
+        use_advanced_model: bool = False,
     ) -> GeneratedMessage:
         """Generate a message for a lead.
 
@@ -147,14 +149,16 @@ class ConversationAgent:
             lead: Context about the lead
             message_type: Type of message to generate
             last_message: Last message from the lead (for replies)
+            use_advanced_model: Use gpt-5.2 for complex reasoning (default: False)
 
         Returns:
             GeneratedMessage with content and validation status
         """
         prompt = self._build_prompt(lead, message_type, last_message)
+        model = self.advanced_model if use_advanced_model else self.model
 
         response = await self._client.chat.completions.create(
-            model=self.model,
+            model=model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
