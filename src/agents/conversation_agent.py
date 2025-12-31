@@ -133,7 +133,7 @@ class ConversationAgent:
         self.api_key = settings.OPENAI_API_KEY
         self.calendar_link = settings.CALENDAR_BOOKING_LINK
         self._client = AsyncOpenAI(api_key=self.api_key)
-        self.model = "gpt-4o"  # Use GPT-4o for best Hebrew support
+        self.model = "gpt-4.5-preview"  # Use GPT-4.5 for best Hebrew support
 
     async def generate_message(
         self,
