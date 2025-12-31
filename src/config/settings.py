@@ -22,7 +22,7 @@ class Settings(BaseSettings):
 
     # Monday.com
     MONDAY_API_KEY: str = Field(default="", description="Monday.com API key")
-    MONDAY_BOARD_ID: str = Field(default="5088565278", description="Monday.com board ID")
+    MONDAY_BOARD_ID: str = Field(default="5089494815", description="Monday.com board ID")
 
     # OpenAI
     OPENAI_API_KEY: str = Field(default="", description="OpenAI API key")

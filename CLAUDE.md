@@ -148,14 +148,34 @@ asyncio.run(verify())
 ```bash
 PYTHONPATH=. python3 -c "
 import asyncio
-from src.agents.conversation_agent import ConversationAgent
+from src.agents.conversation_agent import ConversationAgent, LeadContext
 
 async def verify():
-    agent = ConversationAgent()
-    # Test with mock data
     print('=== OpenAI Verification ===')
-    print('Agent initialized: OK')
-    # Add actual test after implementation
+    agent = ConversationAgent()
+    print(f'Agent initialized: OK')
+    print(f'Model: {agent.model}')
+
+    # Test with sample lead
+    lead = LeadContext(
+        first_name='יוסי',
+        last_name='כהן',
+        company='חברה בע״מ',
+        position='מנהל משאבי אנוש',
+        linkedin_url='https://linkedin.com/in/test',
+        headline='HR Manager',
+    )
+
+    try:
+        message = await agent.generate_first_message(lead)
+        print(f'Generated message: {message.content}')
+        print(f'Word count: {message.word_count}')
+        print(f'Is valid: {message.is_valid}')
+        print('API: OK')
+    except Exception as e:
+        print(f'API Error: {e}')
+    finally:
+        await agent.close()
 
 asyncio.run(verify())
 "

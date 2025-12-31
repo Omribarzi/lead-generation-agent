@@ -30,7 +30,7 @@ class TestSettings:
         assert settings.DAILY_MESSAGE_LIMIT == 10
         assert settings.REQUIRE_HUMAN_APPROVAL == True
         assert settings.TIMEZONE == "Asia/Jerusalem"
-        assert settings.MONDAY_BOARD_ID == "5088565278"
+        assert settings.MONDAY_BOARD_ID == "5089494815"
 
     def test_redis_url_default(self):
         """Test Redis URL has correct default."""
