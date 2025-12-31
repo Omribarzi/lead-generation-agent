@@ -27,3 +27,6 @@ respx>=0.20.0
 
 # Type checking
 mypy>=1.7.0
+
+# E2E Testing / Browser Automation
+selenium>=4.15.0

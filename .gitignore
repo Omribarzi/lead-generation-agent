@@ -51,3 +51,6 @@ logs/
 
 # Local development
 *.local
+
+# E2E Testing
+e2e/screenshots/
